@@ -1,0 +1,6 @@
+# The completion-notify bundle: one browser-only row. Its host half is a no-op;
+# the browser half watches session turn completion and raises a system
+# notification, so no load-bearing row ordering applies.
+- insert:
+    - id: completion-notify
+      name: 'dsh-plugin-completion-notify'
