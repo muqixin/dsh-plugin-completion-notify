@@ -69,6 +69,14 @@ lib/index.js      # 宿主半边：空实现
 lib/client.js     # 浏览器半边：回合结束 → 读投影 → 原生通知 / 卡片
 ```
 
+## 开发与测试
+
+```bash
+npm test     # node --test test/client.test.mjs
+```
+
+`test/client.test.mjs` 用最小 DOM / Notification / Web Audio / Cordis 上下文把 `lib/client.js` 当浏览器模块跑起来，覆盖：回合完成（标题 + 摘要 + 双音提示音）、中断（含「用户主动停止不提醒」与「系统侧中断仍提醒」）、审批（`actions`、`answer('allowed-once')`、请求结束后收起）、提问（去重、点击开会话）、以及无通知权限时的右上角卡片兜底与卸载清理。
+
 ## License
 
 MIT
