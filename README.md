@@ -2,16 +2,16 @@
 
 Session notifications for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): native system alerts when a turn finishes, when a turn is interrupted or fails, and when the session needs you — an approval (with 批准 / 拒绝 actions) or a question. Clicking any alert focuses the window and opens that session.
 
-DSH 会话通知插件：回合完成、**任务中断 / 出错**、以及**需要你审批或回答问题**时弹**系统原生通知**。审批通知带「批准 / 拒绝」按钮，点通知会聚焦窗口并切回对应会话。桌面版（DSH Tauri）走壳的原生通知桥，普通浏览器走标准 Notification API。
+DSH 会话通知插件：回合完成、**任务中断 / 出错**、以及**需要你审批或回答问题**时弹**系统原生通知**，点通知会聚焦窗口并切回对应会话。审批通知会尝试带「批准 / 拒绝」按钮，但当前桌面壳注册动作类型失败、实际只发无按钮通知（见「已知限制」）。桌面版（DSH Tauri）走壳的原生通知桥，普通浏览器走标准 Notification API。
 
 ## 特性
 
 - **原生横幅**：不依赖页面窗口可见，别的应用盖住 DSH 也没关系（点一下通知即回到对应会话）。
-- **需要你的时候也会提醒**：待审批（`approval`）带「批准 / 拒绝」按钮，按下去直接回传 `allowed-once` / `rejected`；待回答（`question`）与方案待审（`plan-review`）也会弹一条，点开去回答。请求结束或已回答时，对应通知自动收起。
-- **中断与出错**：回合被中断、出错或被阻塞时同样提醒，正文区分「已中断 / 出错 / 被阻塞」；已归档的会话不打扰。
+- **需要你的时候也会提醒**：待审批（`approval`）会尝试带「批准 / 拒绝」动作按钮（按下去回传 `allowed-once` / `rejected`）；待回答（`question`）与方案待审（`plan-review`）也会弹一条，点开去回答。请求结束或已回答时，对应通知自动收起。
+- **中断与出错**：回合被中断、出错或被阻塞时同样提醒，正文区分「已中断 / 出错 / 被阻塞」；**你自己按停止造成的中断不提醒**（`turn/end` 的 `reason.reason.kind === 'user'`），已归档的会话也不打扰。
 - **内容**：标题 = 会话标题（`title` 投影，缺省 `displayTitle`）；正文 = 这一轮 `turnOutline` 投影里最后的助手回复预览（最多三行）。
 - **点击**：聚焦窗口 + `uiWorkspace.openSession(sessionId)`；桌面壳里同时带 `sessionId` 和 `dsh-notification-<sessionId>-<ts>` 标签，壳的点击逻辑也能识别。
-- **提示音**：Web Audio 现场合成两音（880Hz → 1318.5Hz，约 0.45 秒），无需音频文件；首次点击/按键解锁音频上下文，被静音策略挡住时静默降级。
+- **提示音**：Web Audio 现场合成的两音（880Hz → 1318.5Hz，每音叠一个八度泛音，峰值 0.19/0.15，约 0.5 秒），无需音频文件；首次点击/按键解锁音频上下文，被静音策略挡住时静默降级。
 - **不打扰**：同一会话 4 秒内不重复；同一审批/提问请求只提醒一次；subagent 子会话不单独发。
 - **兜底**：拿不到 Notification API 或权限被拒时，改用页面右上角卡片（shadow root、最多 3 张、20 秒淡出）。
 
@@ -52,6 +52,10 @@ DSH Tauri 自带 `dsh-tauri-notification`（轮次完成 / 授权 / 提问提醒
 - 想保留内置的授权提醒：保留该行，只把它的 **轮次完成通知** 设为「从不」（设置 → 通用），完成提醒交给本插件。
 
 ## 已知限制
+
+- **动作按钮在 DSH Tauri 上不可用**：壳会把 `actions` 转给 `register_action_types`，但传的是 `action` 字段而插件要求 `id`，因此注册失败并回退成"无按钮"通知。壳的日志里能看到：
+  `[notification] registerActionTypes failed, sending without actions: invalid args 'types' for command 'register_action_types': missing field 'id'`
+  所以审批通知实际没有按钮，正文改为提示"点通知去批准或拒绝"；等壳修好后按钮会自动出现（插件侧已按标准传 `actions`）。
 
 - 通知的样式（横幅 / 持续 / 无）和是否响铃由 macOS 系统设置里该 app 的条目决定；插件只负责投递内容。
 - 桌面壳的原生横幅实测不发声，所以提示音由页面用 Web Audio 补一声；进程退出后不会有任何提醒。
