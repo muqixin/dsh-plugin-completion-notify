@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-completion-notify",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Turn-completion notifications for DeepSeek Harness: a native system banner carrying the session title and a summary of the finished turn, with click-to-open navigation back to that session.",
   "keywords": [
     "dsh",

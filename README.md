@@ -1,16 +1,18 @@
 # dsh-plugin-completion-notify
 
-Turn-completion notifications for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): when a session finishes a turn, a native system notification shows the session title and a summary of that turn, and clicking it brings the window forward and opens that session.
+Session notifications for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): native system alerts when a turn finishes, when a turn is interrupted or fails, and when the session needs you — an approval (with 批准 / 拒绝 actions) or a question. Clicking any alert focuses the window and opens that session.
 
-会话跑完一轮时弹一条**系统原生通知**：标题是会话标题，正文是这一轮的结果摘要，点通知会聚焦窗口并切回该会话。桌面版（DSH Tauri）走壳的原生通知桥，普通浏览器走标准 Notification API。
+DSH 会话通知插件：回合完成、**任务中断 / 出错**、以及**需要你审批或回答问题**时弹**系统原生通知**。审批通知带「批准 / 拒绝」按钮，点通知会聚焦窗口并切回对应会话。桌面版（DSH Tauri）走壳的原生通知桥，普通浏览器走标准 Notification API。
 
 ## 特性
 
 - **原生横幅**：不依赖页面窗口可见，别的应用盖住 DSH 也没关系（点一下通知即回到对应会话）。
+- **需要你的时候也会提醒**：待审批（`approval`）带「批准 / 拒绝」按钮，按下去直接回传 `allowed-once` / `rejected`；待回答（`question`）与方案待审（`plan-review`）也会弹一条，点开去回答。请求结束或已回答时，对应通知自动收起。
+- **中断与出错**：回合被中断、出错或被阻塞时同样提醒，正文区分「已中断 / 出错 / 被阻塞」；已归档的会话不打扰。
 - **内容**：标题 = 会话标题（`title` 投影，缺省 `displayTitle`）；正文 = 这一轮 `turnOutline` 投影里最后的助手回复预览（最多三行）。
 - **点击**：聚焦窗口 + `uiWorkspace.openSession(sessionId)`；桌面壳里同时带 `sessionId` 和 `dsh-notification-<sessionId>-<ts>` 标签，壳的点击逻辑也能识别。
 - **提示音**：Web Audio 现场合成两音（880Hz → 1318.5Hz，约 0.45 秒），无需音频文件；首次点击/按键解锁音频上下文，被静音策略挡住时静默降级。
-- **不打扰**：用户主动中断（`aborted` / `interrupted`）和已归档（`archived`）的回合不发；subagent 子会话不单独发。
+- **不打扰**：同一会话 4 秒内不重复；同一审批/提问请求只提醒一次；subagent 子会话不单独发。
 - **兜底**：拿不到 Notification API 或权限被拒时，改用页面右上角卡片（shadow root、最多 3 张、20 秒淡出）。
 
 ## 安装
@@ -38,7 +40,9 @@ dsh plugin --profile tauri add https://github.com/muqixin/dsh-plugin-completion-
 - 触发：`remote.$on('api-session/status')` 观察到某会话从「运行中」变成「已停止」。插件挂载时已在跑的会话会被当作「见过开始」，所以挂载当轮结束也会提醒。
 - 数据：`remote.session.projections` 现读 `title` 与 `turnOutline`（不依赖列表里的缓存块），所以正文总是描述刚结束的那一轮。
 - 投递：桌面壳把 `window.Notification` 换成 `DshNativeNotification`，`new Notification(title, { body, tag, sessionId })` 经 `postMessage` 交给 Rust 侧的原生通知；普通浏览器走标准 Notification API。
-- 迁移/跳过：`/api/tauri/notification/turn-end` 存在时用它判断 `aborted` / `interrupted` / `archived`，不存在就按"照常通知"处理。
+- 中断判定：已保留（retained）的会话直接读它的事件窗口里最后一条 `turn/end` 的 `reason.kind`；没有保留时用「这一轮有 prompt 但最终回复为空」作为中断的启发式。
+- 审批/提问：订阅 `uiSession.sessionStatus`，对 `pendingInteraction` 的 `kind + key` 去重；`approval` 的按钮直接调用 `pending.answer('allowed-once' | 'rejected')`。
+- 通知动作：`new Notification(title, { actions })` 与 `notification.onaction` 由桌面壳转发；系统不支持按钮时，点通知仍然能打开会话。
 
 ## 与桌面版内置通知插件的关系
 
